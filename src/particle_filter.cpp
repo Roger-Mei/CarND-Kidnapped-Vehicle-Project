@@ -66,7 +66,43 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
    *  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
    *  http://www.cplusplus.com/reference/random/default_random_engine/
    */
+  std::default_random_engine gen;
 
+  for (int i = 0; i < num_particles; ++i)
+  {
+    // Extract currrent state information
+    double curr_x = particles[i].x;
+    double curr_y = particles[i].y;
+    double curr_theta = particles[i].theta;
+
+    // Initialize predicted state
+    double pred_x;
+    double pred_y;
+    double pred_theta;
+
+    // Different kinematic model based on yaw rate scale
+    if (fabs(yaw_rate) < 0.0001)
+    {
+      pred_x = curr_x + velocity * cos(curr_theta) * delta_t;
+      pred_y = curr_y + velocity * sin(curr_theta) * delta_t;
+      pred_theta = curr_theta;
+    }
+    else
+    {
+      pred_x = curr_x + (velocity/yaw_rate) * (sin(curr_theta + (yaw_rate * delta_t)) - sin(curr_theta));
+      pred_y = curr_y + (velocity/yaw_rate) * (cos(curr_theta) - cos(curr_theta + (yaw_rate * delta_t)));
+      pred_theta = curr_theta + (yaw_rate * delta_t);
+    }
+
+    std::normal_distribution<double> dist_x(pred_x, std_pos[0]);
+    std::normal_distribution<double> dist_y(pred_y, std_pos[1]);
+    std::normal_distribution<double> dist_theta(pred_theta, std_pos[2]);
+
+    // Update each particle with the predicted states
+    particles[i].x = dist_x(gen);
+    particles[i].y = dist_y(gen);
+    particles[i].theta = dist_theta(gen);
+  }
 }
 
 void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, 
