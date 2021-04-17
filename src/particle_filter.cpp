@@ -115,7 +115,30 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
    *   probably find it useful to implement this method and use it as a helper 
    *   during the updateWeights phase.
    */
+  for (int i = 0; i < observations.size(); ++i)
+  {
+    // Initialization
+    double min_distance = 500.0; // Randomly initialize with a large number
+    int closest_landmark_id = -1;
+    double obs_x = observations[i].x;
+    double obs_y = observations[i].y;
 
+    for (int j = 0; j < predicted.size(); ++j)
+    {
+      double pred_x = predicted[j].x;
+      double pred_y = predicted[j].y;
+      int pred_id = predicted[j].id;
+      double curr_dist = dist(obs_x, obs_y, pred_x, pred_y);
+
+      // Update nearest neighbor
+      if (curr_dist < min_distance)
+      {
+        min_distance = curr_dist;
+        closest_landmark_id = pred_id;
+      }
+    }
+    observations[i].id = closest_landmark_id;
+  }
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
