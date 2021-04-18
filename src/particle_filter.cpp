@@ -157,7 +157,81 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
+  
+  // Initialize weight normalizer
+  double weight_normalizer = 0.0;
 
+  for (int i = 0; i < num_particles; i++)
+  {
+    double curr_x = particles[i].x;
+    double curr_y = particles[i].y;
+    double curr_theta = particles[i].theta;
+
+    /* Step 1: Transform observation from vehicle frame to world fram*/
+    vector<LandmarkObs> transformed_observations;
+
+    for (int j = 0; j < observations.size(); ++j)
+    {
+      LandmarkObs transformed_observation;
+      transformed_observation.id = j;
+      transformed_observation.x = curr_x + (cos(curr_theta) * observations[j].x) - (sin(curr_theta) * observations[j].y);
+      transformed_observation.y = curr_y + (sin(curr_theta) * observations[j].x) + (cos(curr_theta) * observations[j].y);
+      transformed_observations.push_back(transformed_observation);
+    } 
+
+     /* Step 2: Exclude the landmarks in the map that are not in the sensor range and puish them to predictions vector*/
+    vector<LandmarkObs> predicted_landmarks;
+    for (int k = 0; k < map_landmarks.landmark_list.size(); ++k)
+    {
+      Map::single_landmark_s curr_landmark = map_landmarks.landmark_list[k];
+      if ((fabs(curr_x - curr_landmark.x_f) <= sensor_range) && (fabs(curr_y - curr_landmark.y_f) <= sensor_range))
+      {
+        predicted_landmarks.push_back(LandmarkObs {curr_landmark.id_i, curr_landmark.x_f, curr_landmark.y_f});
+      }
+    }
+
+    /* Step 3: Landmark Association*/
+    dataAssociation(predicted_landmarks, transformed_observations);
+
+    /* Step 4: Calculate the weight of each particle usingg Multivariate Gaussian Distribution*/
+    particles[i].weight = 1.0;
+
+    double sigma_x = std_landmark[0];
+    double sigma_y = std_landmark[1];
+    double sigma_x_2 = pow(sigma_x, 2);
+    double sigma_y_2 = pow(sigma_y, 2);
+    double normalizer = (1.0/(2.0 * M_PI * sigma_x * sigma_y));
+
+    for (int k = 0; k < transformed_observations.size(); ++k)
+    {
+      double trans_obs_x = transformed_observations[k].x;
+      double trans_obs_y = transformed_observations[k].y;
+      double trans_obs_id = transformed_observations[k].id;
+      double multi_prob = 1.0;
+
+      for (int l = 0; l < predicted_landmarks.size(); ++l)
+      {
+        double pred_landmark_x = predicted_landmarks[l].x;
+        double pred_landmark_y = predicted_landmarks[l].y;
+        double pred_landmark_id = predicted_landmarks[l].id;
+
+        if (trans_obs_id == pred_landmark_id)
+        {
+          multi_prob = normalizer * exp(-1.0 * ((pow((trans_obs_x - pred_landmark_x), 2)/(2.0 * sigma_x_2)) + 
+                                                (pow((trans_obs_y - pred_landmark_y), 2)/(2.0 * sigma_y_2))));
+          particles[i].weight *= multi_prob;
+        }
+      }
+    }
+    weight_normalizer += particles[i].weight;                                                                  
+  }
+
+  /* Step 5: Normalize the weight of all particles*/
+  for (int i = 0; i < particles.size(); ++i)
+  {
+    particles[i].weight /= weight_normalizer;
+    weights[i] = particles[i].weight;
+  }
 }
 
 void ParticleFilter::resample() {
