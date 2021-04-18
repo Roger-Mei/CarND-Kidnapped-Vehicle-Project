@@ -32,7 +32,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    */
 
   // Number of particles is chose in order to run the algorithm in real time
-  num_particles = 30;  // TODO: Set the number of particles
+  num_particles = 50;  // TODO: Set the number of particles
 
   std::default_random_engine gen;
 
@@ -54,6 +54,9 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     particles.push_back(current_particle);
     weights.push_back(current_particle.weight);
   }
+
+  // Set the initialization flag to true
+  is_initialized = true;
 
 }
 
@@ -118,7 +121,7 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
   for (int i = 0; i < observations.size(); ++i)
   {
     // Initialization
-    double min_distance = 500.0; // Randomly initialize with a large number
+    double min_distance = std::numeric_limits<double>::max(); // Randomly initialize with a large number
     int closest_landmark_id = -1;
     double obs_x = observations[i].x;
     double obs_y = observations[i].y;
@@ -181,10 +184,15 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
      /* Step 2: Exclude the landmarks in the map that are not in the sensor range and puish them to predictions vector*/
     vector<LandmarkObs> predicted_landmarks;
+    double landmark_dist_sqr;
+    double sensor_range_square = sensor_range * sensor_range;
+
     for (int k = 0; k < map_landmarks.landmark_list.size(); ++k)
     {
       Map::single_landmark_s curr_landmark = map_landmarks.landmark_list[k];
-      if ((fabs(curr_x - curr_landmark.x_f) <= sensor_range) && (fabs(curr_y - curr_landmark.y_f) <= sensor_range))
+
+      landmark_dist_sqr = pow((curr_landmark.x_f - curr_x), 2) + pow((curr_landmark.y_f - curr_y), 2);
+      if (landmark_dist_sqr <= sensor_range_square)
       {
         predicted_landmarks.push_back(LandmarkObs {curr_landmark.id_i, curr_landmark.x_f, curr_landmark.y_f});
       }
